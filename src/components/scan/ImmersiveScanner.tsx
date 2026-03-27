@@ -27,7 +27,7 @@ const REPO_STAGES = [
   { id: 'fetch', label: "Fetching Repository Data", icon: Database, description: "Extracting 90-day activity logs and repository metadata." },
   { id: 'history', label: "Analyzing Commit History", icon: History, description: "Evaluating code velocity, branch complexity, and baseline patterns." },
   { id: 'behavior', label: "Evaluating Contributor Behavior", icon: Users, description: "Calculating trust scores, tenure, and cross-repo interaction network." },
-  { id: 'deps', label: "Scanning Dependencies", icon: ShieldAlert, description: "Identifying suspicious packages and potential supply chain injections." },
+  { id: 'deps', label: "Analyzing File Changes", icon: ShieldAlert, description: "Examining which files are modified in each commit to identify unusual or sensitive changes." },
   { id: 'cicd', label: "Inspecting CI/CD Pipelines", icon: Cpu, description: "Detecting unauthorized workflow drift and deployment anomalies." },
   { id: 'score', label: "Calculating Risk Profile", icon: Calculator, description: "Aggregating behavioral signals into a weighted risk assessment." },
 ];
