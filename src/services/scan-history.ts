@@ -52,20 +52,20 @@ export async function getUserScanStats(
     const querySnapshot = await getDocs(q);
     
     let totalThreats = 0;
-    let totalNodes = 0;
+    let totalScans = 0;
     const uniqueRepos = new Set<string>();
     
     querySnapshot.forEach((doc) => {
       const data = doc.data() as ScanRecord;
       totalThreats += data.threatsDetected || 0;
-      totalNodes += data.nodesAnalyzed || 0;
+      totalScans += 1;
       uniqueRepos.add(`${data.repoOwner}/${data.repoName}`);
     });
     
     return {
-      reposScanned: uniqueRepos.size,
+      reposScanned: totalScans, // Count every scan session
       threatsDetected: totalThreats,
-      activeNodes: totalNodes
+      activeNodes: uniqueRepos.size // Only count unique repositories as "Active Nodes"
     };
   } catch (error) {
     console.error("Error fetching user scan stats:", error);
