@@ -140,7 +140,7 @@ export default function Home() {
           branch: formData.branch,
           scanMode: scanMode,
           threatsDetected: threats,
-          nodesAnalyzed: nodes
+          nodesAnalyzed: 1 // SET 1 TO ACTIVE NODES as requested
         });
         
         // Refresh stats
