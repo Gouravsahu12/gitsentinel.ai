@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react';
 import { runAnalyse, runSourceCodeScan, runFullScan } from '@/services/api';
 import { ScanResultsView } from '@/components/scan/ScanResultsView';
+import ImmersiveScanner from '@/components/scan/ImmersiveScanner';
 import { useRouter } from 'next/navigation';
 import { motion, useMotionValue, useSpring, useTransform, AnimatePresence } from 'framer-motion';
 import { Button } from '@/components/ui/button';
@@ -34,6 +35,8 @@ export default function Home() {
   const [apiError, setApiError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [showScanner, setShowScanner] = useState(false);
+  const [scannerComplete, setScannerComplete] = useState(false);
   const [isFormFocused, setIsFormFocused] = useState(false);
   const router = useRouter();
   
@@ -84,6 +87,8 @@ export default function Home() {
 
     setIsLoading(true);
     setApiError(null);
+    setShowScanner(true);
+    setScannerComplete(false);
 
     try {
       if (scanMode === 'commit') {
@@ -98,6 +103,8 @@ export default function Home() {
       }
     } catch (err: any) {
       setApiError(err.message || "Failed to audit repository");
+      setShowScanner(false);
+      setScannerComplete(false);
     } finally {
       setIsLoading(false);
     }
@@ -111,8 +118,26 @@ export default function Home() {
 
   if (!mounted) return null;
 
-  if (result) {
-    return <ScanResultsView data={result} mode={scanMode} onReset={() => setResult(null)} />;
+  if (result && scannerComplete) {
+    return <ScanResultsView data={result} mode={scanMode} onReset={() => {
+      setResult(null);
+      setShowScanner(false);
+      setScannerComplete(false);
+    }} />;
+  }
+
+  if (showScanner) {
+    return (
+      <div className="min-h-screen bg-[#050608] selection:bg-primary/30">
+        <ImmersiveScanner 
+          mode="repo"
+          scanMode={scanMode}
+          owner={formData.owner} 
+          target={formData.repo} 
+          onComplete={() => setScannerComplete(true)} 
+        />
+      </div>
+    );
   }
 
   return (
