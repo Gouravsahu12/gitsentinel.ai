@@ -70,7 +70,8 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
           return 99.5;
         }
         
-        const step = 100 / (stageCount * 120); 
+        // Increased speed: fewer steps
+        const step = 100 / (stageCount * 30); 
         const nextProgress = prev + step;
         
         const nextStage = Math.min(Math.floor((nextProgress / 100) * stageCount), stageCount - 1);
@@ -81,7 +82,7 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
         
         return nextProgress;
       });
-    }, 50);
+    }, 20);
 
     return () => clearInterval(interval);
   }, [currentStageIndex, scanState, STAGES]);
@@ -90,20 +91,20 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
     if (scanState === 'processing') {
       const timer = setTimeout(() => {
         setScanState('preparing');
-      }, 1500);
+      }, 400);
       return () => clearTimeout(timer);
     }
     if (scanState === 'preparing') {
       const timer = setTimeout(() => {
         setScanState('finalizing');
         setProgress(100);
-      }, 2000); 
+      }, 500); 
       return () => clearTimeout(timer);
     }
     if (scanState === 'finalizing') {
       const timer = setTimeout(() => {
         setScanState('completed');
-      }, 1500); 
+      }, 400); 
       return () => clearTimeout(timer);
     }
   }, [scanState]);
