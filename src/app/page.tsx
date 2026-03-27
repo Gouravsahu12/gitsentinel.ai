@@ -46,9 +46,9 @@ export default function Home() {
   const { openSignup } = useAuthModals();
 
   const [stats, setStats] = useState<UserStats | { reposScanned: number, threatsDetected: number, activeNodes: number }>({ 
-    reposScanned: 1245892, 
-    threatsDetected: 4589, 
-    activeNodes: 124 
+    reposScanned: 2, 
+    threatsDetected: 1, 
+    activeNodes: 1 
   });
 
   useEffect(() => {
