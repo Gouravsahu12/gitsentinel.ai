@@ -1,66 +1,165 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { 
-    LayoutDashboard, GitBranch, FileCode, CheckCircle2, AlertTriangle, ChevronDown, 
+import {
+    LayoutDashboard, GitBranch, FileCode, CheckCircle2, AlertTriangle, ChevronDown,
     Hash, ShieldAlert, ShieldCheck, Activity, TrendingUp, FileWarning, ArrowLeft, Layers,
     Zap, ExternalLink, Shield
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import { AnalyseResponse, SourceCodeResponse, FullScanResponse } from '@/services/api';
 
+import RepoDashboardContent from '@/components/dashboard/RepoDashboardContent';
+import { getFallbackRepoAssessment } from '@/lib/mock-data';
+
 type ScanMode = 'commit' | 'code' | 'full';
 
-interface ScanResultsViewProps { 
-    data: any; 
-    mode: ScanMode; 
+interface ScanResultsViewProps {
+    data: any;
+    mode: ScanMode;
     owner?: string;
     repo?: string;
     branch?: string;
-    onReset: () => void; 
+    onReset: () => void;
 }
 
-export function ScanResultsView({ 
-    data, 
-    mode, 
-    owner,
+export function ScanResultsView({
+    data,
+    mode,
+    owner = "",
     repo: repoProp,
     branch: branchProp,
-    onReset 
+    onReset
 }: ScanResultsViewProps) {
-    // Determine effective repo/branch from data or props
+    if (!data) return null;
+
+    // Determine effective repo/branch
     const effectiveRepo = repoProp || data?.repo || "Project";
     const effectiveBranch = branchProp || data?.branch || "main";
-    const effectiveOwner = owner || "";
+    
+    // Map Real API Data to RepoDashboardContent props
+    let commitDepth = 0;
+    let suspiciousCount = 0;
+    let score = 0;
+    let level = 'Safe';
+    let results: any[] = [];
+    let recommendations: string[] = [];
+    let contributors: any[] = [];
+
+    if (mode === 'commit') {
+        const d = data as AnalyseResponse;
+        commitDepth = d.total_analyzed || 0;
+        suspiciousCount = d.suspicious_count || 0;
+        score = d.suspicious_pct || 0;
+        level = suspiciousCount > 5 ? 'High Risk' : suspiciousCount > 0 ? 'Moderate Risk' : 'Safe';
+        results = (d.results || []).filter(r => r.suspicious);
+        
+        if (suspiciousCount > 0) {
+            recommendations.push(`Audit ${suspiciousCount} flagged commits immediately for behavioral anomalies.`);
+            recommendations.push("Verify the identity of contributors behind suspicious activity.");
+        } else {
+            recommendations.push("No immediate behavioural threats detected. Maintain current audit frequency.");
+        }
+        recommendations.push("Enable branch protection for all sensitive repositories.");
+    } else if (mode === 'code') {
+        const d = data as SourceCodeResponse;
+        commitDepth = d.scanned_files || 0;
+        suspiciousCount = d.vulnerable_files || 0;
+        score = (d.repo_risk_score || 0) * 100;
+        level = d.repo_risk || 'Safe';
+        results = (d.results || []).filter(r => r.prediction === 'VULNERABLE');
+
+        if (suspiciousCount > 0) {
+            recommendations.push(`Remediate ${suspiciousCount} vulnerable files identified in the source trace.`);
+            recommendations.push("Implement automated static analysis in the CI/CD pipeline.");
+        } else {
+            recommendations.push("Source integrity verified. No critical vulnerabilities found.");
+        }
+    } else if (mode === 'full') {
+        const d = data as FullScanResponse;
+        const ca = d.commit_analysis;
+        const sc = d.source_code_scan;
+        commitDepth = ca?.total_analyzed || 0;
+        suspiciousCount = (ca?.suspicious_count || 0) + (sc?.vulnerable_files || 0);
+        score = (sc?.repo_risk_score || ca?.suspicious_pct / 100 || 0) * 100;
+        level = sc?.repo_risk || (ca?.suspicious_count > 0 ? 'Moderate Risk' : 'Safe');
+        
+        results = [
+            ...(ca?.results || []).filter(r => r.suspicious).map(r => ({ ...r, type: 'commit' })),
+            ...(sc?.results || []).filter(r => r.prediction === 'VULNERABLE').map(r => ({ ...r, type: 'code' }))
+        ];
+        
+        if (ca?.suspicious_count > 0) recommendations.push(`Investigate ${ca.suspicious_count} suspicious commits.`);
+        if (sc?.vulnerable_files > 0) recommendations.push(`Fix ${sc.vulnerable_files} security vulnerabilities in source code.`);
+        recommendations.push("Review all dependencies for potential typosquatting or supply chain risks.");
+        recommendations.push("Enforce MFA for all repository contributors.");
+    }
+
+    // Prepare RepoAnalysisData format
+    const mappedRawData = {
+        repoName: effectiveRepo,
+        owner: owner,
+        platform: 'github' as const,
+        last90DaysMetrics: {
+            commitCount: commitDepth,
+            prCount: 0,
+            newContributors: 0,
+            averageCommitsPerDay: parseFloat((commitDepth / 7).toFixed(1))
+        },
+        baselines: {
+            avgCommitFrequency: 5,
+            typicalContributorCount: 5
+        },
+        sensitiveChanges: results.map(r => ({
+            hash: r.commit_hash || r.filename?.substring(0, 8) || "000000",
+            type: (r.type === 'code' ? 'binary_commit' : 'maintainer_change') as 'binary_commit' | 'maintainer_change' | 'cicd' | 'dependency',
+            description: r.subject || `Vulnerable file: ${r.filename}` || "Flagged activity",
+            date: new Date().toISOString().split('T')[0],
+            contributor: `UID_${r.author_id || 'SYSTEM'}`,
+            riskLevel: (r.risk_level || 'MEDIUM').toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
+            confidence: (r.probability || r.confidence || 0) * (r.type === 'commit' || mode === 'commit' ? 100 : 1)
+        })),
+        contributors: [],
+        stats: {
+            totalCommitsScanned: commitDepth,
+            suspiciousCommits: suspiciousCount,
+            flaggedContributors: 0,
+            atRiskFiles: mode === 'code' ? suspiciousCount : 0,
+            totalContributors: 0
+        }
+    };
+
+    const mappedAnalysis = {
+        overallRiskScore: Math.round(score),
+        riskLevel: level as "Safe" | "Moderate Risk" | "High Risk",
+        confidenceScore: 85,
+        keyFactors: [],
+        suspiciousEventsTimeline: [],
+        recommendedActions: recommendations,
+        isFallback: false
+    };
 
     return (
-        <div className="relative min-h-screen flex flex-col items-center p-6 overflow-x-hidden pt-12 pb-24 bg-[#050608]">
-            {/* Background Glows */}
-            <div className="absolute inset-0 opacity-20 pointer-events-none overflow-hidden">
-                <div className="absolute top-0 right-0 w-[800px] h-[800px] bg-primary/10 rounded-full blur-[120px] -mr-[300px] -mt-[300px]" />
-                <div className="absolute bottom-0 left-0 w-[600px] h-[600px] bg-secondary/5 rounded-full blur-[100px] -ml-[200px] -mb-[200px]" />
+        <div className="relative min-h-screen flex flex-col items-center p-0 overflow-x-hidden bg-[#050608]">
+            {/* Action Bar */}
+            <div className="max-w-[1400px] w-full px-6 py-4 flex justify-between items-center relative z-20">
+                <button
+                    onClick={onReset}
+                    className="flex items-center gap-2 text-muted-foreground hover:text-white transition-all text-[10px] font-headline uppercase tracking-widest glass-panel px-6 py-2.5 rounded-xl border border-white/10"
+                >
+                    <ArrowLeft className="h-3 w-3" /> Back to Search
+                </button>
             </div>
 
-            <div className="max-w-7xl w-full relative z-10">
-                <div className="flex items-center justify-between mb-10">
-                    <button 
-                      onClick={onReset} 
-                      className="flex items-center gap-2 text-muted-foreground hover:text-white transition-all text-[10px] font-headline uppercase tracking-widest glass-panel px-6 py-2.5 rounded-xl border border-white/10 hover:border-primary/30 hover:shadow-[0_0_20px_rgba(38,114,255,0.15)] group"
-                    >
-                        <ArrowLeft className="h-3 w-3 group-hover:-translate-x-1 transition-transform" /> Back to Search
-                    </button>
-                    <div className="text-[10px] font-headline uppercase tracking-[0.3em] text-muted-foreground/60 flex items-center gap-3 bg-white/5 px-4 py-2 rounded-full border border-white/5">
-                        <CheckCircle2 className="h-3 w-3 text-emerald-400" /> 
-                        <span className="text-emerald-400">Analysis Synchronized</span>
-                        <div className="h-1 w-1 rounded-full bg-white/20" />
-                        <span>Secure Trace Complete</span>
-                    </div>
-                </div>
-
-                <div className="space-y-12">
-                    {mode === 'commit' && <CommitDashboard data={data as AnalyseResponse} owner={effectiveOwner} repo={effectiveRepo} branch={effectiveBranch} />}
-                    {mode === 'code' && <SourceCodeDashboard data={data as SourceCodeResponse} owner={effectiveOwner} repo={effectiveRepo} branch={effectiveBranch} />}
-                    {mode === 'full' && <FullScanDashboard data={data as FullScanResponse} owner={effectiveOwner} repo={effectiveRepo} branch={effectiveBranch} />}
-                </div>
+            <div className="max-w-[1400px] w-full relative z-10">
+                <RepoDashboardContent 
+                    owner={owner}
+                    name={effectiveRepo}
+                    branch={effectiveBranch}
+                    commitDepth={commitDepth}
+                    scanMode={mode}
+                    rawData={mappedRawData}
+                    analysis={mappedAnalysis}
+                />
             </div>
         </div>
     );
@@ -94,10 +193,10 @@ function SourceCodeDashboard({ data, owner, repo, branch }: { data: SourceCodeRe
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             <ScanHeader title="Source Vulnerability Trace" owner={owner} repo={repo} branch={branch} risk={data.repo_risk} />
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-               <KPICard icon={FileCode} label="Files Scanned" value={data.scanned_files ?? 0} color="text-secondary" />
-               <KPICard icon={FileWarning} label="Vulnerable Files" value={data.vulnerable_files ?? 0} color={(data.vulnerable_files ?? 0) > 0 ? "text-red-400" : "text-emerald-400"} />
-               <KPICard icon={CheckCircle2} label="Safe Files" value={data.safe_files ?? 0} color="text-emerald-400" />
-               <KPICard icon={TrendingUp} label="Weighted Risk Score" value={`${((data.repo_risk_score ?? 0) * 100).toFixed(1)}%`} color={(data.repo_risk_score ?? 0) > 0.5 ? "text-red-400" : "text-emerald-400"} />
+                <KPICard icon={FileCode} label="Files Scanned" value={data.scanned_files ?? 0} color="text-secondary" />
+                <KPICard icon={FileWarning} label="Vulnerable Files" value={data.vulnerable_files ?? 0} color={(data.vulnerable_files ?? 0) > 0 ? "text-red-400" : "text-emerald-400"} />
+                <KPICard icon={CheckCircle2} label="Safe Files" value={data.safe_files ?? 0} color="text-emerald-400" />
+                <KPICard icon={TrendingUp} label="Weighted Risk Score" value={`${((data.repo_risk_score ?? 0) * 100).toFixed(1)}%`} color={(data.repo_risk_score ?? 0) > 0.5 ? "text-red-400" : "text-emerald-400"} />
             </div>
             <SourceCodeDistribution safe={data.safe_files} vulnerable={data.vulnerable_files} total={data.scanned_files} />
             <SourceList results={data.results} />
@@ -117,7 +216,7 @@ function FullScanDashboard({ data, owner, repo, branch }: { data: FullScanRespon
     return (
         <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} className="space-y-8">
             <ScanHeader title="Comprehensive Ecosystem Audit" owner={owner} repo={repo} branch={branch} risk={sc.repo_risk} />
-            
+
             <div className="flex gap-2 p-2 bg-white/[0.02] border border-white/5 rounded-2xl inline-flex w-full md:w-auto overflow-x-auto no-scrollbar">
                 {[
                     { key: 'overview' as const, label: 'Overview Metrics', icon: LayoutDashboard },
@@ -126,9 +225,9 @@ function FullScanDashboard({ data, owner, repo, branch }: { data: FullScanRespon
                 ].map(tab => (
                     <button key={tab.key} onClick={() => setActiveTab(tab.key)} className={cn(
                         "flex items-center gap-3 px-6 py-3.5 rounded-xl text-[10px] font-headline uppercase tracking-widest transition-all whitespace-nowrap border",
-                        activeTab === tab.key 
-                          ? "bg-primary/20 border-primary/40 text-primary shadow-[0_0_20px_rgba(38,114,255,0.15)]" 
-                          : "text-muted-foreground border-transparent hover:text-white hover:bg-white/5"
+                        activeTab === tab.key
+                            ? "bg-primary/20 border-primary/40 text-primary shadow-[0_0_20px_rgba(38,114,255,0.15)]"
+                            : "text-muted-foreground border-transparent hover:text-white hover:bg-white/5"
                     )}>
                         <tab.icon className="h-4 w-4" /> {tab.label}
                     </button>
@@ -145,13 +244,13 @@ function FullScanDashboard({ data, owner, repo, branch }: { data: FullScanRespon
                             <KPICard icon={TrendingUp} label="Aggregate Risk" value={`${((sc.repo_risk_score ?? 0) * 100).toFixed(1)}%`} color={(sc.repo_risk_score ?? 0) > 0.5 ? "text-red-400" : "text-emerald-400"} />
                         </div>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                            <SummaryModule title="Behavioural Synthesis" icon={GitBranch} color="primary" stats={[{label: "Total Blocks", value: ca.total_analyzed}, {label: "Anomalies", value: ca.suspicious_count, isBad: (ca.suspicious_count ?? 0) > 0}]} onDeepDive={() => setActiveTab('commits')} />
-                            <SummaryModule title="Source Inventory" icon={FileCode} color="secondary" stats={[{label: "Files Parsed", value: sc.scanned_files}, {label: "Vulnerabilities", value: sc.vulnerable_files, isBad: (sc.vulnerable_files ?? 0) > 0}]} onDeepDive={() => setActiveTab('source')} />
+                            <SummaryModule title="Behavioural Synthesis" icon={GitBranch} color="primary" stats={[{ label: "Total Blocks", value: ca.total_analyzed }, { label: "Anomalies", value: ca.suspicious_count, isBad: (ca.suspicious_count ?? 0) > 0 }]} onDeepDive={() => setActiveTab('commits')} />
+                            <SummaryModule title="Source Inventory" icon={FileCode} color="secondary" stats={[{ label: "Files Parsed", value: sc.scanned_files }, { label: "Vulnerabilities", value: sc.vulnerable_files, isBad: (sc.vulnerable_files ?? 0) > 0 }]} onDeepDive={() => setActiveTab('source')} />
                         </div>
                     </motion.div>
                 )}
                 {activeTab === 'commits' && <motion.div key="commits" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><CommitList results={ca.results} /></motion.div>}
-                {activeTab === 'source'  && <motion.div key="source" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><SourceList results={sc.results} /></motion.div>}
+                {activeTab === 'source' && <motion.div key="source" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}><SourceList results={sc.results} /></motion.div>}
             </AnimatePresence>
         </motion.div>
     );
@@ -205,7 +304,7 @@ function CommitList({ results }: { results: any[] }) {
             <span className="font-headline text-[10px] tracking-widest uppercase">No commit telemetry detected in specified window.</span>
         </div>
     );
-    
+
     return (
         <div className="glass-panel rounded-[2rem] overflow-hidden border-white/5">
             <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
@@ -218,12 +317,12 @@ function CommitList({ results }: { results: any[] }) {
             <div className="divide-y divide-white/5">
                 {results.map((commit, i) => (
                     <div key={commit.commit_hash || i} className="group">
-                        <div 
-                            onClick={() => setExpandedHash(expandedHash === commit.commit_hash ? null : commit.commit_hash)} 
+                        <div
+                            onClick={() => setExpandedHash(expandedHash === commit.commit_hash ? null : commit.commit_hash)}
                             className="flex items-center gap-5 p-5 hover:bg-white/[0.02] cursor-pointer transition-all active:scale-[0.99]"
                         >
                             <div className={cn(
-                                "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border transition-transform duration-300 group-hover:scale-105", 
+                                "h-11 w-11 rounded-xl flex items-center justify-center shrink-0 border transition-transform duration-300 group-hover:scale-105",
                                 commit.suspicious ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                             )}>
                                 {commit.suspicious ? <AlertTriangle className="h-5 w-5" /> : <CheckCircle2 className="h-5 w-5" />}
@@ -246,10 +345,10 @@ function CommitList({ results }: { results: any[] }) {
                         </div>
                         <AnimatePresence>
                             {expandedHash === commit.commit_hash && (
-                                <motion.div 
-                                    initial={{ height: 0, opacity: 0 }} 
-                                    animate={{ height: "auto", opacity: 1 }} 
-                                    exit={{ height: 0, opacity: 0 }} 
+                                <motion.div
+                                    initial={{ height: 0, opacity: 0 }}
+                                    animate={{ height: "auto", opacity: 1 }}
+                                    exit={{ height: 0, opacity: 0 }}
                                     className="overflow-hidden bg-white/[0.015] border-t border-white/5"
                                 >
                                     <div className="p-8 grid grid-cols-1 md:grid-cols-3 gap-8">
@@ -295,7 +394,7 @@ function SourceList({ results }: { results: any[] }) {
             <span className="font-headline text-[10px] tracking-widest uppercase">No source code vulnerabilities detected. Environment clean.</span>
         </div>
     );
-    
+
     return (
         <div className="glass-panel rounded-[2rem] overflow-hidden border-white/5">
             <div className="p-6 border-b border-white/5 flex items-center justify-between bg-white/[0.01]">
@@ -309,7 +408,7 @@ function SourceList({ results }: { results: any[] }) {
                 {results.map((file, i) => (
                     <div key={file.filepath || i} className="flex flex-col md:flex-row md:items-center gap-5 p-5 hover:bg-white/[0.02] transition-colors group">
                         <div className={cn(
-                            "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border group-hover:scale-105 transition-transform duration-300", 
+                            "h-12 w-12 rounded-2xl flex items-center justify-center shrink-0 border group-hover:scale-105 transition-transform duration-300",
                             file.prediction === 'VULNERABLE' ? "bg-red-500/10 border-red-500/20 text-red-400" : "bg-emerald-500/10 border-emerald-500/20 text-emerald-400"
                         )}>
                             {file.prediction === 'VULNERABLE' ? <ShieldAlert className="h-6 w-6" /> : <ShieldCheck className="h-6 w-6" />}
@@ -344,7 +443,7 @@ function SourceList({ results }: { results: any[] }) {
 function SourceCodeDistribution({ safe, vulnerable, total }: { safe: number, vulnerable: number, total: number }) {
     const safePct = (safe / Math.max(total, 1)) * 100;
     const vulnerablePct = (vulnerable / Math.max(total, 1)) * 100;
-    
+
     return (
         <div className="glass-panel p-8 rounded-[2rem] border-white/5 relative overflow-hidden group">
             <div className="absolute top-0 right-0 p-8 opacity-5">
@@ -396,8 +495,8 @@ function SummaryModule({ title, icon: Icon, color, stats, onDeepDive }: { title:
                     </div>
                 ))}
             </div>
-            <button 
-                onClick={onDeepDive} 
+            <button
+                onClick={onDeepDive}
                 className="w-full bg-white/5 border border-white/10 hover:bg-white/10 hover:border-white/20 hover:text-primary cursor-pointer text-[10px] font-headline tracking-[0.3em] uppercase p-4 rounded-xl transition-all text-muted-foreground active:scale-[0.98] group/btn"
             >
                 Start Deep Dive Trace <ArrowLeft className="h-3 w-3 inline ml-2 rotate-180 group-hover/btn:translate-x-1 transition-transform" />
@@ -408,10 +507,10 @@ function SummaryModule({ title, icon: Icon, color, stats, onDeepDive }: { title:
 
 function KPICard({ icon: Icon, label, value, color }: { icon: any; label: string; value: string | number; color: string }) {
     return (
-        <motion.div 
-            initial={{ opacity: 0, y: 20 }} 
-            animate={{ opacity: 1, y: 0 }} 
-            whileHover={{ y: -5, scale: 1.02 }} 
+        <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            whileHover={{ y: -5, scale: 1.02 }}
             className="glass-panel p-7 rounded-[2rem] border-white/5 relative overflow-hidden group shadow-xl active:scale-[0.98] transition-all"
         >
             <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
@@ -433,10 +532,10 @@ function RiskBadge({ level, large = false }: { level: string, large?: boolean })
         MEDIUM: { bg: 'bg-amber-500/10', border: 'border-amber-500/30', text: 'text-amber-400', dot: 'bg-amber-400' },
         HIGH: { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400', dot: 'bg-red-400' },
     }[level.toUpperCase()] || { bg: 'bg-white/5', border: 'border-white/10', text: 'text-white/60', dot: 'bg-white/40' };
-    
+
     return (
         <span className={cn(
-            "inline-flex items-center gap-2 rounded-full font-headline uppercase tracking-widest border transition-all duration-300", 
+            "inline-flex items-center gap-2 rounded-full font-headline uppercase tracking-widest border transition-all duration-300",
             large ? "px-6 py-2.5 text-xs font-bold shadow-lg" : "px-3 py-1 text-[9px]",
             config.bg, config.border, config.text
         )}>
@@ -452,14 +551,14 @@ function ProbabilityBar({ value, label }: { value: number, label?: string }) {
         <div className="space-y-1.5">
             {label && <div className="text-[8px] font-headline uppercase tracking-widest text-muted-foreground/40">{label}</div>}
             <div className="relative h-2 w-full bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5">
-                <motion.div 
-                    initial={{ width: 0 }} 
-                    animate={{ width: `${pct}%` }} 
-                    transition={{ duration: 1.2, ease: "easeOut" }} 
+                <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${pct}%` }}
+                    transition={{ duration: 1.2, ease: "easeOut" }}
                     className={cn(
-                        "h-full rounded-full transition-all duration-500", 
+                        "h-full rounded-full transition-all duration-500",
                         pct > 50 ? "bg-red-500 shadow-[0_0_10px_rgba(239,68,68,0.5)]" : pct > 20 ? "bg-amber-500 shadow-[0_0_10px_rgba(245,158,11,0.5)]" : "bg-emerald-500 shadow-[0_0_10px_rgba(16,185,129,0.5)]"
-                    )} 
+                    )}
                 />
             </div>
         </div>
