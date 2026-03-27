@@ -1,16 +1,16 @@
 
 "use client";
 
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { 
-  Database, 
-  History, 
-  Users, 
-  ShieldAlert, 
-  Cpu, 
-  Calculator, 
-  CheckCircle2, 
+import {
+  Database,
+  History,
+  Users,
+  ShieldAlert,
+  Cpu,
+  Calculator,
+  CheckCircle2,
   Loader2,
   Lock,
   Zap,
@@ -27,7 +27,7 @@ const REPO_STAGES = [
   { id: 'fetch', label: "Fetching Repository Data", icon: Database, description: "Extracting 90-day activity logs and repository metadata." },
   { id: 'history', label: "Analyzing Commit History", icon: History, description: "Evaluating code velocity, branch complexity, and baseline patterns." },
   { id: 'behavior', label: "Evaluating Contributor Behavior", icon: Users, description: "Calculating trust scores, tenure, and cross-repo interaction network." },
-  { id: 'deps', label: "Analyzing File Changes", icon: ShieldAlert, description: "Examining which files are modified in each commit to identify unusual or sensitive changes." },
+  { id: 'changes', label: "Analyzing File Changes", icon: ShieldAlert, description: "Identifying suspicious file modifications and potential security regressions." },
   { id: 'cicd', label: "Inspecting CI/CD Pipelines", icon: Cpu, description: "Detecting unauthorized workflow drift and deployment anomalies." },
   { id: 'score', label: "Calculating Risk Profile", icon: Calculator, description: "Aggregating behavioral signals into a weighted risk assessment." },
 ];
@@ -51,7 +51,19 @@ interface ImmersiveScannerProps {
 }
 
 export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', target, owner, onComplete }: ImmersiveScannerProps) {
-  const STAGES = mode === 'repo' ? REPO_STAGES : USER_STAGES;
+  const STAGES = useMemo(() => {
+    if (mode === 'user') return USER_STAGES;
+    
+    if (scanMode === 'commit') {
+      return REPO_STAGES.filter(s => ['fetch', 'history', 'behavior', 'score'].includes(s.id));
+    }
+    if (scanMode === 'code') {
+      return REPO_STAGES.filter(s => ['fetch', 'changes', 'cicd', 'score'].includes(s.id));
+    }
+    return REPO_STAGES;
+  }, [mode, scanMode]);
+
+  const half = Math.ceil(STAGES.length / 2);
   const [scanState, setScanState] = useState<ScanState>('scanning');
   const [currentStageIndex, setCurrentStageIndex] = useState(0);
   const [progress, setProgress] = useState(0);
@@ -69,17 +81,17 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
           setScanState('processing');
           return 99.5;
         }
-        
+
         // Increased speed: fewer steps
-        const step = 100 / (stageCount * 30); 
+        const step = 100 / (stageCount * 30);
         const nextProgress = prev + step;
-        
+
         const nextStage = Math.min(Math.floor((nextProgress / 100) * stageCount), stageCount - 1);
         if (nextStage > currentStageIndex) {
           setCompletedStages(prevStages => [...prevStages, STAGES[currentStageIndex].id]);
           setCurrentStageIndex(nextStage);
         }
-        
+
         return nextProgress;
       });
     }, 20);
@@ -98,13 +110,13 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
       const timer = setTimeout(() => {
         setScanState('finalizing');
         setProgress(100);
-      }, 500); 
+      }, 500);
       return () => clearTimeout(timer);
     }
     if (scanState === 'finalizing') {
       const timer = setTimeout(() => {
         setScanState('completed');
-      }, 400); 
+      }, 400);
       return () => clearTimeout(timer);
     }
   }, [scanState]);
@@ -123,7 +135,7 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
 
   const getHeaderText = () => {
     if (mode === 'user') return <>PROFILING <span className="text-primary">@{target}</span></>;
-    
+
     switch (scanMode) {
       case 'commit': return <>AUDITING commits - <span className="text-primary">{target}</span></>;
       case 'code': return <>AUDITING codes - <span className="text-secondary">{target}</span></>;
@@ -133,10 +145,10 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
-      animate={scanState === 'completed' ? { 
-        scale: 1.2, 
+      animate={scanState === 'completed' ? {
+        scale: 1.2,
         opacity: 0,
         filter: "blur(20px)"
       } : { opacity: 1 }}
@@ -146,33 +158,32 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
       <div className="absolute inset-0 opacity-10 pointer-events-none">
         <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:40px_40px]" />
         {streams.map((left, i) => (
-          <div 
-            key={i} 
-            className="data-stream" 
-            style={{ left: `${left}%`, animationDelay: `${i * 0.4}s`, animationDuration: `${3 + Math.random() * 5}s` }} 
+          <div
+            key={i}
+            className="data-stream"
+            style={{ left: `${left}%`, animationDelay: `${i * 0.4}s`, animationDuration: `${3 + Math.random() * 5}s` }}
           />
         ))}
       </div>
 
       <div className="w-full max-w-7xl z-10 flex flex-col items-center">
         <header className="text-center mb-16 space-y-4">
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: -10 }}
-            animate={{ 
-              opacity: 1, 
+            animate={{
+              opacity: 1,
               y: 0,
               backgroundColor: scanState === 'preparing' || scanState === 'finalizing' ? "rgba(58, 203, 224, 0.2)" : "rgba(38, 114, 255, 0.1)"
             }}
-            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-headline tracking-[0.3em] uppercase transition-colors duration-500 ${
-              scanState === 'finalizing' || scanState === 'completed' || scanState === 'preparing'
-                ? "border-secondary/40 text-secondary" 
+            className={`inline-flex items-center gap-2 px-4 py-1.5 rounded-full border text-[10px] font-headline tracking-[0.3em] uppercase transition-colors duration-500 ${scanState === 'finalizing' || scanState === 'completed' || scanState === 'preparing'
+                ? "border-secondary/40 text-secondary"
                 : "border-primary/20 text-primary"
-            }`}
+              }`}
           >
-            <Activity className={`h-3 w-3 ${scanState !== 'completed' ? 'animate-pulse' : ''}`} /> 
+            <Activity className={`h-3 w-3 ${scanState !== 'completed' ? 'animate-pulse' : ''}`} />
             {scanState === 'finalizing' || scanState === 'completed' ? "AUDIT_FINALIZED" : scanState === 'preparing' ? "PREPARING_DASHBOARD" : "CORE_ANALYSIS_ACTIVE"}
           </motion.div>
-          <motion.h1 
+          <motion.h1
             initial={{ opacity: 0, scale: 0.95 }}
             animate={{ opacity: 1, scale: 1 }}
             className="text-4xl md:text-6xl font-bold font-headline tracking-tighter text-white uppercase"
@@ -183,7 +194,7 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 w-full items-center">
           <div className="lg:col-span-4 space-y-4 hidden lg:block">
-            {STAGES.slice(0, 3).map((stage, index) => {
+            {STAGES.slice(0, half).map((stage, index) => {
               const isActive = index === currentStageIndex && scanState === 'scanning';
               const isCompleted = completedStages.includes(stage.id) || scanState !== 'scanning';
               return <StageCard key={stage.id} stage={stage} isActive={isActive} isCompleted={isCompleted} />;
@@ -192,8 +203,8 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
 
           <div className="lg:col-span-4 flex flex-col items-center justify-center relative py-12">
             <ScanningOrb progress={progress} isActive={scanState === 'scanning'} />
-            
-            <motion.div 
+
+            <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               className="mt-12 text-center"
@@ -215,7 +226,7 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
                     </div>
                   </motion.div>
                 ) : scanState === 'preparing' ? (
-                   <motion.div
+                  <motion.div
                     key="preparing"
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
@@ -239,7 +250,7 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
                       {Math.round(progress)}%
                     </div>
                     <div className="w-48 h-1.5 bg-white/5 rounded-full overflow-hidden border border-white/5 p-0.5 mx-auto">
-                      <motion.div 
+                      <motion.div
                         initial={{ width: 0 }}
                         animate={{ width: `${progress}%` }}
                         className="h-full bg-primary rounded-full shadow-[0_0_15px_rgba(38,114,255,0.6)]"
@@ -255,8 +266,8 @@ export default function ImmersiveScanner({ mode = 'repo', scanMode = 'full', tar
           </div>
 
           <div className="lg:col-span-4 space-y-4">
-            {(STAGES.length > 3 ? STAGES.slice(3) : STAGES).map((stage, index) => {
-              const adjustedIndex = STAGES.length > 3 ? index + 3 : index;
+            {(STAGES.length > 2 ? STAGES.slice(half) : STAGES).map((stage, index) => {
+              const adjustedIndex = STAGES.length > 2 ? index + half : index;
               const isActive = adjustedIndex === currentStageIndex && scanState === 'scanning';
               const isCompleted = completedStages.includes(stage.id) || scanState !== 'scanning';
               return <StageCard key={stage.id} stage={stage} isActive={isActive} isCompleted={isCompleted} />;
@@ -284,18 +295,17 @@ function StageCard({ stage, isActive, isCompleted }: { stage: any, isActive: boo
   return (
     <motion.div
       initial={false}
-      animate={{ 
+      animate={{
         scale: isActive ? 1.05 : 1,
         opacity: isActive ? 1 : isCompleted ? 0.7 : 0.3,
         x: isActive ? 10 : 0
       }}
-      className={`relative p-5 rounded-2xl border transition-all duration-500 ${
-        isActive 
-        ? "bg-primary/10 border-primary/30 shadow-[0_0_30px_rgba(38,114,255,0.2)] z-20" 
-        : isCompleted 
-          ? "bg-secondary/5 border-secondary/20" 
-          : "bg-white/5 border-white/5"
-      }`}
+      className={`relative p-5 rounded-2xl border transition-all duration-500 ${isActive
+          ? "bg-primary/10 border-primary/30 shadow-[0_0_30px_rgba(38,114,255,0.2)] z-20"
+          : isCompleted
+            ? "bg-secondary/5 border-secondary/20"
+            : "bg-white/5 border-white/5"
+        }`}
     >
       <div className="flex items-center gap-4 mb-3">
         <div className={`p-2 rounded-lg ${isActive ? "bg-primary text-white" : isCompleted ? "bg-secondary/20 text-secondary" : "bg-white/10 text-muted-foreground"}`}>
@@ -311,7 +321,7 @@ function StageCard({ stage, isActive, isCompleted }: { stage: any, isActive: boo
       </div>
       <AnimatePresence>
         {isActive && (
-          <motion.p 
+          <motion.p
             initial={{ height: 0, opacity: 0 }}
             animate={{ height: 'auto', opacity: 1 }}
             exit={{ height: 0, opacity: 0 }}
