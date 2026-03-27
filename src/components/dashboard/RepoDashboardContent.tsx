@@ -199,7 +199,7 @@ export default function RepoDashboardContent({
 
         <div className="flex flex-wrap gap-4 relative z-20">
           <Button
-            onClick={() => onReset?.()}
+            onClick={onReset}
             variant="ghost"
             className="h-12 px-8 rounded-xl border border-white/5 bg-white/5 font-headline text-[10px] tracking-widest uppercase hover:bg-white/10 text-white/70"
           >
