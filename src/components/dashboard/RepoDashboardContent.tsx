@@ -174,39 +174,36 @@ export default function RepoDashboardContent({
         "bg-[radial-gradient(circle_at_50%_0%,#3acbe0_0%,transparent_50%)]"
       )} />
 
-      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 glass-panel p-8 rounded-[2.5rem] border-white/5 relative overflow-hidden">
+      <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 glass-panel p-6 rounded-[2rem] border-white/5 relative overflow-hidden bg-[#0a0b0d]/80">
         <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[120px] -mr-48 -mt-48" />
         
         <div className="flex items-center gap-6 relative z-10">
-          <div className="p-5 bg-white/5 rounded-2xl border border-white/10 shadow-2xl">
-            {getDashboardIcon()}
+          <div className="h-16 w-16 bg-white/5 rounded-2xl border border-white/10 shadow-2xl flex items-center justify-center">
+            <Github className="h-8 w-8 text-white" />
           </div>
           <div>
-            <div className="flex items-center gap-3 text-[10px] font-headline tracking-[0.3em] text-muted-foreground uppercase mb-2">
-              <span>{owner}</span>
-              <ChevronRight className="h-3 w-3 text-white/20" />
+            <div className="flex items-center gap-2 text-[10px] font-headline tracking-[0.2em] text-muted-foreground uppercase mb-1">
+              <span className="hover:text-white cursor-pointer transition-colors">{owner || "USER"}</span>
+              <ChevronRight className="h-3 w-3 opacity-30" />
               <span className="text-white font-bold">{name}</span>
               <div className="h-1 w-1 rounded-full bg-white/20 mx-1" />
-              <span className="flex items-center gap-1"><GitBranch className="h-3 w-3" /> {branch}</span>
+              <span className="flex items-center gap-1 opacity-70"><GitBranch className="h-3 w-3" /> {branch}</span>
             </div>
-            <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-white uppercase">
-              {getDashboardTitle()}
+            <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-white uppercase flex items-center gap-3">
+              REPOSITORY <span className="text-primary italic neon-text-primary">ANALYSIS</span>
             </h1>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-4 relative z-10">
           <Link href="/">
-            <Button variant="outline" className="h-12 px-6 rounded-xl border-white/10 glass-card font-headline text-[10px] tracking-widest uppercase hover:bg-white/5">
+            <Button variant="ghost" className="h-12 px-8 rounded-xl border border-white/5 bg-white/5 font-headline text-[10px] tracking-widest uppercase hover:bg-white/10 text-white/70">
               New Scan
             </Button>
           </Link>
           <Button 
             onClick={handleDownloadReport}
-            className={cn(
-              "h-12 px-8 rounded-xl font-headline text-[10px] tracking-widest uppercase shadow-2xl",
-              scanMode === 'full' ? "bg-amber-500 text-black hover:bg-amber-600" : "bg-primary text-white glow-primary"
-            )}
+            className="h-12 px-8 rounded-xl font-headline text-[10px] tracking-widest uppercase bg-primary text-white glow-primary shadow-2xl hover:bg-primary/90"
           >
             <Download className="h-4 w-4 mr-2" /> Download Report
           </Button>
@@ -228,7 +225,7 @@ export default function RepoDashboardContent({
           </Card>
         </div>
 
-        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {kpiStats.map((stat, i) => (
             <motion.div 
               key={i} 
@@ -236,16 +233,27 @@ export default function RepoDashboardContent({
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
               whileHover={{ y: -5, scale: 1.02 }}
-              className="glass-panel p-6 rounded-3xl border-white/5 relative overflow-hidden group cursor-default"
+              className="glass-panel p-8 rounded-[2rem] border-white/5 relative overflow-hidden group cursor-default bg-[#0a0b0d]/40 backdrop-blur-xl"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-white/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="flex justify-between items-start mb-4">
-                <stat.icon className={cn("h-4 w-4", stat.color)} />
-                <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", stat.color === 'text-destructive' ? 'bg-destructive' : 'bg-secondary')} />
+              <div className="flex justify-between items-start mb-6">
+                <div className={cn("p-2.5 rounded-xl bg-white/5 border border-white/10", stat.color)}>
+                  <stat.icon className="h-5 w-5" />
+                </div>
+                {i === 0 && suspiciousCount > 0 && (
+                   <div className="bg-destructive/90 text-white text-[8px] font-bold px-3 py-1 rounded-full flex items-center gap-2 animate-bounce shadow-lg shadow-destructive/20">
+                     <span className="uppercase tracking-widest">{suspiciousCount} {suspiciousCount === 1 ? 'Issue' : 'Issues'}</span>
+                     <div className="h-2 w-2 rounded-full bg-white/50" />
+                   </div>
+                )}
+                <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", stat.color.includes('destructive') ? 'bg-destructive' : 'bg-secondary')} />
               </div>
-              <div className={cn("text-2xl font-bold font-headline mb-1", stat.color)}>{stat.value}</div>
-              <div className="text-[9px] font-headline uppercase text-muted-foreground tracking-widest">{stat.label}</div>
-              <div className="text-[8px] text-muted-foreground/50 mt-1 italic leading-tight">{stat.sub}</div>
+              <div className={cn("text-5xl font-bold font-headline mb-2 tabular-nums tracking-tighter", stat.color)}>{stat.value}</div>
+              <div className="text-[10px] font-headline uppercase text-muted-foreground tracking-[0.2em]">{stat.label}</div>
+              <div className="text-[8px] text-muted-foreground/40 mt-1 italic leading-tight uppercase tracking-widest">{stat.sub}</div>
+              
+              {/* Decorative scan line */}
+              <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             </motion.div>
           ))}
         </div>
