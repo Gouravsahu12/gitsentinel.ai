@@ -146,7 +146,7 @@ export function ScanResultsView({
                     onClick={onReset}
                     className="flex items-center gap-2 text-muted-foreground hover:text-white transition-all text-[10px] font-headline uppercase tracking-widest glass-panel px-6 py-2.5 rounded-xl border border-white/10"
                 >
-                    <ArrowLeft className="h-3 w-3" /> Back to Search
+                    <ArrowLeft className="h-3 w-3" /> Back to Scan
                 </button>
             </div>
 
