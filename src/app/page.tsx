@@ -172,7 +172,7 @@ export default function Home() {
         owner={formData.owner}
         repo={formData.repo}
         branch={formData.branch}
-        onReset={() => {
+        onReset={async () => {
           setResult(null);
           setShowScanner(false);
           setScannerComplete(false);
@@ -184,6 +184,12 @@ export default function Home() {
             token: ''
           });
           setApiError(null);
+          
+          // Refresh stats one more time to be absolutely sure when returning to home
+          if (user && firestore) {
+            const updatedStats = await getUserScanStats(firestore, user.uid);
+            setStats(updatedStats);
+          }
         }} 
       />
     );
