@@ -119,11 +119,20 @@ export default function Home() {
   if (!mounted) return null;
 
   if (result && scannerComplete) {
-    return <ScanResultsView data={result} mode={scanMode} onReset={() => {
-      setResult(null);
-      setShowScanner(false);
-      setScannerComplete(false);
-    }} />;
+    return (
+      <ScanResultsView 
+        data={result} 
+        mode={scanMode} 
+        owner={formData.owner}
+        repo={formData.repo}
+        branch={formData.branch}
+        onReset={() => {
+          setResult(null);
+          setShowScanner(false);
+          setScannerComplete(false);
+        }} 
+      />
+    );
   }
 
   if (showScanner) {
