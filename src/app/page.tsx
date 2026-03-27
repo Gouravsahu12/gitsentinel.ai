@@ -130,6 +130,14 @@ export default function Home() {
           setResult(null);
           setShowScanner(false);
           setScannerComplete(false);
+          setFormData({
+            owner: '',
+            repo: '',
+            branch: 'main',
+            last_Commit: 20,
+            token: ''
+          });
+          setApiError(null);
         }} 
       />
     );
