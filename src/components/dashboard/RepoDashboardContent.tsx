@@ -3,9 +3,9 @@
 
 import React from "react";
 import { motion } from "framer-motion";
-import { 
-  Github, Users, GitBranch, 
-  Download, Activity, 
+import {
+  Github, Users, GitBranch,
+  Download, Activity,
   Zap, Shield, AlertTriangle,
   BarChart3, List, ChevronRight, CheckCircle2,
   ArrowRightCircle, Star, Code, GitCommit
@@ -36,13 +36,13 @@ interface RepoDashboardContentProps {
   onReset?: () => void;
 }
 
-export default function RepoDashboardContent({ 
-  owner, 
-  name, 
-  branch, 
+export default function RepoDashboardContent({
+  owner,
+  name,
+  branch,
   commitDepth,
   scanMode = 'full',
-  rawData, 
+  rawData,
   analysis,
   errorMsg,
   onReset
@@ -55,16 +55,16 @@ export default function RepoDashboardContent({
 
   const handleDownloadReport = () => {
     const doc = new jsPDF();
-    
+
     doc.setFontSize(22);
-    doc.setTextColor(38, 114, 255); 
+    doc.setTextColor(38, 114, 255);
     doc.text("GITSENTINEL Audit Report", 14, 20);
-    
+
     doc.setFontSize(10);
     doc.setTextColor(100);
     doc.text(`Generated on: ${new Date().toLocaleString()}`, 14, 28);
     doc.text(`Scan Mode: ${scanMode.toUpperCase()}`, 14, 34);
-    
+
     doc.setFontSize(14);
     doc.setTextColor(0);
     doc.text("Repository Identity", 14, 45);
@@ -97,7 +97,7 @@ export default function RepoDashboardContent({
 
     doc.setFontSize(14);
     doc.text("Flagged Behavioral Anomalies", 14, (doc as any).lastAutoTable.finalY + 15);
-    
+
     autoTable(doc, {
       startY: (doc as any).lastAutoTable.finalY + 20,
       head: [['Hash', 'What Changed', 'Risk Level']],
@@ -114,33 +114,33 @@ export default function RepoDashboardContent({
   };
 
   const kpiStats = [
-    { 
-      label: "Total commits scanned", 
-      value: commitDepth, 
-      sub: `Full audit depth of ${commitDepth} nodes`, 
-      icon: Activity, 
-      color: "text-white" 
+    {
+      label: "Total commits scanned",
+      value: commitDepth,
+      sub: `Full audit depth of ${commitDepth} nodes`,
+      icon: Activity,
+      color: "text-white"
     },
-    { 
-      label: "Suspicious commits", 
-      value: suspiciousCount, 
-      sub: `${suspiciousCount} suspicious commits`, 
-      icon: AlertTriangle, 
-      color: suspiciousCount > 0 ? "text-destructive" : "text-secondary" 
+    {
+      label: "Suspicious commits",
+      value: suspiciousCount,
+      sub: `${suspiciousCount} suspicious commits`,
+      icon: AlertTriangle,
+      color: suspiciousCount > 0 ? "text-destructive" : "text-secondary"
     },
-    { 
-      label: "Safe commits", 
-      value: safeCommitsCount, 
-      sub: "Verified as nominal activity", 
-      icon: Shield, 
-      color: "text-secondary" 
+    {
+      label: "Safe commits",
+      value: safeCommitsCount,
+      sub: "Verified as nominal activity",
+      icon: Shield,
+      color: "text-secondary"
     },
-    { 
-      label: "Risk percentage", 
-      value: `${analysis.overallRiskScore}%`, 
-      sub: "Aggregated threat probability", 
-      icon: Zap, 
-      color: analysis.overallRiskScore > 70 ? "text-destructive" : analysis.overallRiskScore > 35 ? "text-amber-500" : "text-secondary" 
+    {
+      label: "Risk percentage",
+      value: `${analysis.overallRiskScore}%`,
+      sub: "Aggregated threat probability",
+      icon: Zap,
+      color: analysis.overallRiskScore > 70 ? "text-destructive" : analysis.overallRiskScore > 35 ? "text-amber-500" : "text-secondary"
     }
   ];
 
@@ -163,7 +163,7 @@ export default function RepoDashboardContent({
   };
 
   return (
-    <motion.div 
+    <motion.div
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       className="min-h-screen p-4 md:p-8 space-y-10 relative"
@@ -171,14 +171,14 @@ export default function RepoDashboardContent({
       <div className={cn(
         "fixed inset-0 pointer-events-none transition-colors duration-1000 -z-10 opacity-20",
         scanMode === 'full' ? "bg-[radial-gradient(circle_at_50%_0%,#f59e0b_0%,transparent_50%)]" :
-        isHighRisk ? "bg-[radial-gradient(circle_at_50%_0%,#ef4444_0%,transparent_50%)]" : 
-        isModerateRisk ? "bg-[radial-gradient(circle_at_50%_0%,#f59e0b_0%,transparent_50%)]" : 
-        "bg-[radial-gradient(circle_at_50%_0%,#3acbe0_0%,transparent_50%)]"
+          isHighRisk ? "bg-[radial-gradient(circle_at_50%_0%,#ef4444_0%,transparent_50%)]" :
+            isModerateRisk ? "bg-[radial-gradient(circle_at_50%_0%,#f59e0b_0%,transparent_50%)]" :
+              "bg-[radial-gradient(circle_at_50%_0%,#3acbe0_0%,transparent_50%)]"
       )} />
 
       <header className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 glass-panel p-6 rounded-[2rem] border-white/5 relative overflow-hidden bg-[#0a0b0d]/80">
-        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[120px] -mr-48 -mt-48" />
-        
+        <div className="absolute top-0 right-0 w-96 h-96 bg-primary/5 rounded-full blur-[120px] -mr-48 -mt-48 pointer-events-none" />
+
         <div className="flex items-center gap-6 relative z-10">
           <div className="h-16 w-16 bg-white/5 rounded-2xl border border-white/10 shadow-2xl flex items-center justify-center">
             <Github className="h-8 w-8 text-white" />
@@ -197,15 +197,15 @@ export default function RepoDashboardContent({
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-4 relative z-10">
-          <Button 
-            onClick={onReset}
-            variant="ghost" 
+        <div className="flex flex-wrap gap-4 relative z-20">
+          <Button
+            onClick={() => onReset?.()}
+            variant="ghost"
             className="h-12 px-8 rounded-xl border border-white/5 bg-white/5 font-headline text-[10px] tracking-widest uppercase hover:bg-white/10 text-white/70"
           >
             New Scan
           </Button>
-          <Button 
+          <Button
             onClick={handleDownloadReport}
             className="h-12 px-8 rounded-xl font-headline text-[10px] tracking-widest uppercase bg-primary text-white glow-primary shadow-2xl hover:bg-primary/90"
           >
@@ -220,9 +220,9 @@ export default function RepoDashboardContent({
         <div className="lg:col-span-12">
           <Card className="glass-panel border-none p-12 rounded-[3rem] shadow-2xl bg-gradient-to-b from-card/60 to-card/20 overflow-hidden relative">
             <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-1 bg-gradient-to-r from-transparent via-primary to-transparent opacity-20" />
-            <RepoRiskMeter 
-              score={analysis.overallRiskScore} 
-              level={analysis.riskLevel} 
+            <RepoRiskMeter
+              score={analysis.overallRiskScore}
+              level={analysis.riskLevel}
               branch={branch}
               commitDepth={commitDepth}
             />
@@ -231,8 +231,8 @@ export default function RepoDashboardContent({
 
         <div className="lg:col-span-12 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
           {kpiStats.map((stat, i) => (
-            <motion.div 
-              key={i} 
+            <motion.div
+              key={i}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: i * 0.1 }}
@@ -245,17 +245,17 @@ export default function RepoDashboardContent({
                   <stat.icon className="h-5 w-5" />
                 </div>
                 {i === 0 && suspiciousCount > 0 && (
-                   <div className="bg-destructive/90 text-white text-[8px] font-bold px-3 py-1 rounded-full flex items-center gap-2 animate-bounce shadow-lg shadow-destructive/20">
-                     <span className="uppercase tracking-widest">{suspiciousCount} {suspiciousCount === 1 ? 'Issue' : 'Issues'}</span>
-                     <div className="h-2 w-2 rounded-full bg-white/50" />
-                   </div>
+                  <div className="bg-destructive/90 text-white text-[8px] font-bold px-3 py-1 rounded-full flex items-center gap-2 animate-bounce shadow-lg shadow-destructive/20">
+                    <span className="uppercase tracking-widest">{suspiciousCount} {suspiciousCount === 1 ? 'Issue' : 'Issues'}</span>
+                    <div className="h-2 w-2 rounded-full bg-white/50" />
+                  </div>
                 )}
                 <div className={cn("h-1.5 w-1.5 rounded-full animate-pulse", stat.color.includes('destructive') ? 'bg-destructive' : 'bg-secondary')} />
               </div>
               <div className={cn("text-5xl font-bold font-headline mb-2 tabular-nums tracking-tighter", stat.color)}>{stat.value}</div>
               <div className="text-[10px] font-headline uppercase text-muted-foreground tracking-[0.2em]">{stat.label}</div>
               <div className="text-[8px] text-muted-foreground/40 mt-1 italic leading-tight uppercase tracking-widest">{stat.sub}</div>
-              
+
               {/* Decorative scan line */}
               <div className="absolute bottom-0 left-0 right-0 h-[1px] bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             </motion.div>
@@ -275,9 +275,9 @@ export default function RepoDashboardContent({
               <p className="text-xs text-muted-foreground/80 font-body">Most commits are safe, but a few show risky behavior.</p>
             </div>
             <div className="h-[400px] w-full relative z-10">
-              <CommitVolume3D 
-                commitDepth={commitDepth} 
-                sensitiveChanges={rawData.sensitiveChanges} 
+              <CommitVolume3D
+                commitDepth={commitDepth}
+                sensitiveChanges={rawData.sensitiveChanges}
               />
             </div>
             <div className="mt-8 flex items-center gap-2 text-xs font-headline text-muted-foreground uppercase tracking-widest bg-white/5 p-4 rounded-2xl border border-white/5">
@@ -313,8 +313,8 @@ export default function RepoDashboardContent({
             </CardHeader>
             <CardContent className="p-0 space-y-6">
               {analysis.recommendedActions.map((action, i) => (
-                <motion.div 
-                  key={i} 
+                <motion.div
+                  key={i}
                   whileHover={{ x: 5 }}
                   className="flex gap-4 items-start group relative"
                 >
