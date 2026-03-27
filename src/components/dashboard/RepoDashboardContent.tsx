@@ -33,6 +33,7 @@ interface RepoDashboardContentProps {
   rawData: RepoAnalysisData;
   analysis: AnalyzeRepositoryOutput;
   errorMsg?: string | null;
+  onReset?: () => void;
 }
 
 export default function RepoDashboardContent({ 
@@ -43,7 +44,8 @@ export default function RepoDashboardContent({
   scanMode = 'full',
   rawData, 
   analysis,
-  errorMsg
+  errorMsg,
+  onReset
 }: RepoDashboardContentProps) {
   const isHighRisk = analysis.riskLevel === 'High Risk';
   const isModerateRisk = analysis.riskLevel === 'Moderate Risk';
@@ -196,11 +198,13 @@ export default function RepoDashboardContent({
         </div>
 
         <div className="flex flex-wrap gap-4 relative z-10">
-          <Link href="/">
-            <Button variant="ghost" className="h-12 px-8 rounded-xl border border-white/5 bg-white/5 font-headline text-[10px] tracking-widest uppercase hover:bg-white/10 text-white/70">
-              New Scan
-            </Button>
-          </Link>
+          <Button 
+            onClick={onReset}
+            variant="ghost" 
+            className="h-12 px-8 rounded-xl border border-white/5 bg-white/5 font-headline text-[10px] tracking-widest uppercase hover:bg-white/10 text-white/70"
+          >
+            New Scan
+          </Button>
           <Button 
             onClick={handleDownloadReport}
             className="h-12 px-8 rounded-xl font-headline text-[10px] tracking-widest uppercase bg-primary text-white glow-primary shadow-2xl hover:bg-primary/90"
