@@ -15,6 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import RepoRiskMeter from "@/components/dashboard/RepoRiskMeter";
 import FlaggedCommitsTable from "@/components/dashboard/FlaggedCommitsTable";
+import VulnerableFilesTable from "@/components/dashboard/VulnerableFilesTable";
 import ContributorMatrix from "@/components/dashboard/ContributorMatrix";
 import CommitVolume3D from "@/components/dashboard/CommitVolume3D";
 import ResilientAnalysisBanner from "@/components/dashboard/ResilientAnalysisBanner";
@@ -95,25 +96,76 @@ export default function RepoDashboardContent({
       headStyles: { fillColor: [38, 114, 255] }
     });
 
-    doc.setFontSize(14);
-    doc.text("Flagged Behavioral Anomalies", 14, (doc as any).lastAutoTable.finalY + 15);
+    if (scanMode === 'commit' || scanMode === 'full') {
+      doc.setFontSize(14);
+      doc.text("Flagged Behavioral Anomalies", 14, (doc as any).lastAutoTable.finalY + 15);
 
-    autoTable(doc, {
-      startY: (doc as any).lastAutoTable.finalY + 20,
-      head: [['Hash', 'What Changed', 'Risk Level']],
-      body: rawData.sensitiveChanges.map(c => [
-        c.hash.substring(0, 6),
-        c.description,
-        c.riskLevel
-      ]),
-      theme: 'grid',
-      headStyles: { fillColor: [239, 68, 68] }
-    });
+      autoTable(doc, {
+        startY: (doc as any).lastAutoTable.finalY + 20,
+        head: [['Hash', 'What Changed', 'Risk Level']],
+        body: rawData.sensitiveChanges.map(c => [
+          c.hash.substring(0, 6),
+          c.description,
+          c.riskLevel
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [239, 68, 68] }
+      });
+    }
+
+    if (scanMode === 'code' || scanMode === 'full') {
+      const startY = (doc as any).lastAutoTable ? (doc as any).lastAutoTable.finalY + 15 : 105;
+      doc.setFontSize(14);
+      doc.setTextColor(0);
+      doc.text("Vulnerable Source Files", 14, startY);
+
+      autoTable(doc, {
+        startY: startY + 5,
+        head: [['File Path', 'Risk %', 'Risk Level', 'Language']],
+        body: (rawData.vulnerableFiles || []).map(f => [
+          f.filename,
+          `${f.riskPercentage.toFixed(1)}%`,
+          f.riskLevel,
+          f.language
+        ]),
+        theme: 'grid',
+        headStyles: { fillColor: [58, 203, 224] }
+      });
+    }
 
     doc.save(`GitSentinel_Report_${owner}_${name}.pdf`);
   };
 
-  const kpiStats = [
+  const kpiStats = scanMode === 'code' ? [
+    {
+      label: "Total files scanned",
+      value: rawData.stats.totalCommitsScanned, // Reusing stats object
+      sub: `Full source audit depth`,
+      icon: Activity,
+      color: "text-white"
+    },
+    {
+      label: "Vulnerable files",
+      value: rawData.vulnerableFiles?.length || 0,
+      sub: `${rawData.vulnerableFiles?.length || 0} vulnerable files`,
+      icon: AlertTriangle,
+      color: (rawData.vulnerableFiles?.length || 0) > 0 ? "text-destructive" : "text-secondary"
+    },
+    {
+      label: "Safe files",
+      value: Math.max(0, rawData.stats.totalCommitsScanned - (rawData.vulnerableFiles?.length || 0)),
+      sub: "Verified as nominal activity",
+      icon: Shield,
+      color: "text-secondary"
+    },
+    {
+      label: "Risk percentage",
+      value: `${analysis.overallRiskScore}%`,
+      sub: "Aggregated threat probability",
+      icon: Zap,
+      color: analysis.overallRiskScore > 70 ? "text-destructive" : analysis.overallRiskScore > 35 ? "text-amber-500" : "text-secondary"
+    }
+  ] : [
     {
       label: "Total commits scanned",
       value: commitDepth,
@@ -192,14 +244,14 @@ export default function RepoDashboardContent({
               <span className="flex items-center gap-1 opacity-70"><GitBranch className="h-3 w-3" /> {branch}</span>
             </div>
             <h1 className="text-4xl md:text-5xl font-bold font-headline tracking-tighter text-white uppercase flex items-center gap-3">
-              REPOSITORY <span className="text-primary italic neon-text-primary">ANALYSIS</span>
+              {getDashboardTitle()}
             </h1>
           </div>
         </div>
 
         <div className="flex flex-wrap gap-4 relative z-20">
           <Button
-            onClick={onReset}
+            onClick={() => onReset?.()}
             variant="ghost"
             className="h-12 px-8 rounded-xl border border-white/5 bg-white/5 font-headline text-[10px] tracking-widest uppercase hover:bg-white/10 text-white/70"
           >
@@ -262,46 +314,65 @@ export default function RepoDashboardContent({
           ))}
         </div>
 
-        <div className="lg:col-span-12">
-          <Card className="glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative group">
-            <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
-            <CardHeader className="p-0 mb-4 relative z-10">
-              <CardTitle className="text-xl font-headline tracking-tighter flex items-center gap-3">
-                <BarChart3 className="h-6 w-6 text-secondary" /> Commit Activity
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground/60 uppercase tracking-widest">Recent commit analysis</CardDescription>
-            </CardHeader>
-            <div className="mb-6 relative z-10">
-              <p className="text-xs text-muted-foreground/80 font-body">Most commits are safe, but a few show risky behavior.</p>
-            </div>
-            <div className="h-[400px] w-full relative z-10">
-              <CommitVolume3D
-                commitDepth={commitDepth}
-                sensitiveChanges={rawData.sensitiveChanges}
-              />
-            </div>
-            <div className="mt-8 flex items-center gap-2 text-xs font-headline text-muted-foreground uppercase tracking-widest bg-white/5 p-4 rounded-2xl border border-white/5">
-              <AlertTriangle className={cn("h-4 w-4", suspiciousCount > 0 ? "text-destructive" : "text-secondary")} />
-              <span>{suspiciousCount} suspicious commit{suspiciousCount !== 1 ? 's' : ''} detected in recent activity</span>
-            </div>
-            <div className="scanning-sweep absolute inset-0 pointer-events-none opacity-10" />
-          </Card>
-        </div>
+        {(scanMode === 'commit' || scanMode === 'full') && (
+          <div className="lg:col-span-12">
+            <Card className="glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl overflow-hidden relative group">
+              <div className="absolute inset-0 bg-primary/5 opacity-0 group-hover:opacity-100 transition-opacity duration-700 pointer-events-none" />
+              <CardHeader className="p-0 mb-4 relative z-10">
+                <CardTitle className="text-xl font-headline tracking-tighter flex items-center gap-3">
+                  <BarChart3 className="h-6 w-6 text-secondary" /> Commit Activity
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground/60 uppercase tracking-widest">Recent commit analysis</CardDescription>
+              </CardHeader>
+              <div className="mb-6 relative z-10">
+                <p className="text-xs text-muted-foreground/80 font-body">Most commits are safe, but a few show risky behavior.</p>
+              </div>
+              <div className="h-[400px] w-full relative z-10">
+                <CommitVolume3D
+                  commitDepth={commitDepth}
+                  sensitiveChanges={rawData.sensitiveChanges}
+                />
+              </div>
+              <div className="mt-8 flex items-center gap-2 text-xs font-headline text-muted-foreground uppercase tracking-widest bg-white/5 p-4 rounded-2xl border border-white/5">
+                <AlertTriangle className={cn("h-4 w-4", suspiciousCount > 0 ? "text-destructive" : "text-secondary")} />
+                <span>{suspiciousCount} suspicious commit{suspiciousCount !== 1 ? 's' : ''} detected in recent activity</span>
+              </div>
+              <div className="scanning-sweep absolute inset-0 pointer-events-none opacity-10" />
+            </Card>
+          </div>
+        )}
 
-        <div className="lg:col-span-8 space-y-8">
-          <Card className="glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl">
-            <CardHeader className="p-0 mb-8">
-              <CardTitle className="text-xl font-headline tracking-tighter flex items-center gap-3">
-                <List className="h-6 w-6 text-primary" /> Flagged Commits
-              </CardTitle>
-              <CardDescription className="text-xs text-muted-foreground/60 uppercase tracking-widest">Anomalous nodes detected in recent trace</CardDescription>
-            </CardHeader>
-            <FlaggedCommitsTable changes={rawData.sensitiveChanges} />
-          </Card>
-        </div>
+        {/* Dynamic Tables Based on Scan Mode */}
+        {(scanMode === 'code' || scanMode === 'full') && (
+          <div className="lg:col-span-12">
+            <Card className="glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl">
+              <CardHeader className="p-0 mb-8">
+                <CardTitle className="text-xl font-headline tracking-tighter flex items-center gap-3">
+                  <Code className="h-6 w-6 text-secondary" /> Vulnerable Source Files
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground/60 uppercase tracking-widest">Security vulnerabilities detected in project files</CardDescription>
+              </CardHeader>
+              <VulnerableFilesTable files={rawData.vulnerableFiles || []} />
+            </Card>
+          </div>
+        )}
 
-        <div className="lg:col-span-4 space-y-8">
-          <Card className="glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl bg-gradient-to-br from-primary/10 to-transparent border-primary/20">
+        {(scanMode === 'commit' || scanMode === 'full') && (
+          <div className="lg:col-span-8 space-y-8">
+            <Card className="glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl">
+              <CardHeader className="p-0 mb-8">
+                <CardTitle className="text-xl font-headline tracking-tighter flex items-center gap-3">
+                  <List className="h-6 w-6 text-primary" /> Flagged Commits
+                </CardTitle>
+                <CardDescription className="text-xs text-muted-foreground/60 uppercase tracking-widest">Anomalous nodes detected in recent trace</CardDescription>
+              </CardHeader>
+              <FlaggedCommitsTable changes={rawData.sensitiveChanges} />
+            </Card>
+          </div>
+        )}
+
+        <div className={cn("space-y-8", (scanMode === 'code') ? "lg:col-span-12 grid grid-cols-1 lg:grid-cols-12 gap-8 space-y-0" : "lg:col-span-4")}>
+          <Card className={cn("glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl bg-gradient-to-br from-primary/10 to-transparent border-primary/20", (scanMode === 'code') ? "lg:col-span-8" : "")}>
             <CardHeader className="p-0 mb-8">
               <div className="flex items-center justify-between mb-2">
                 <Zap className="h-5 w-5 text-primary animate-pulse" />
@@ -339,7 +410,7 @@ export default function RepoDashboardContent({
             </CardContent>
           </Card>
 
-          <Card className="glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl">
+          <Card className={cn("glass-panel border-none rounded-[2.5rem] p-8 shadow-2xl", (scanMode === 'code') ? "lg:col-span-4" : "")}>
             <CardHeader className="p-0 mb-6">
               <CardTitle className="text-xl font-headline tracking-tighter flex items-center gap-3">
                 <Users className="h-6 w-6 text-primary" /> Contributors
