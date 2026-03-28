@@ -13,12 +13,12 @@ import {
 import Link from "next/link";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import RepoRiskMeter from "@/components/dashboard/RepoRiskMeter";
-import FlaggedCommitsTable from "@/components/dashboard/FlaggedCommitsTable";
-import VulnerableFilesTable from "@/components/dashboard/VulnerableFilesTable";
-import ContributorMatrix from "@/components/dashboard/ContributorMatrix";
-import CommitVolume3D from "@/components/dashboard/CommitVolume3D";
-import ResilientAnalysisBanner from "@/components/dashboard/ResilientAnalysisBanner";
+import RepoRiskMeter from "./RepoRiskMeter";
+import FlaggedCommitsTable from "./FlaggedCommitsTable";
+import VulnerableFilesTable from "./VulnerableFilesTable";
+import ContributorMatrix from "./ContributorMatrix";
+import CommitVolume3D from "./CommitVolume3D";
+import ResilientAnalysisBanner from "./ResilientAnalysisBanner";
 import type { RepoAnalysisData } from "@/lib/mock-data";
 import type { AnalyzeRepositoryOutput } from "@/ai/flows/analyze-repository-behavior";
 import { cn } from "@/lib/utils";
