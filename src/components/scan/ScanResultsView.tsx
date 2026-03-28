@@ -40,10 +40,17 @@ export function ScanResultsView({
     let commitDepth = 0;
     let suspiciousCount = 0;
     let score = 0;
-    let level = 'Safe';
+    let level: "Safe" | "Moderate Risk" | "High Risk" = 'Safe';
     let results: any[] = [];
     let recommendations: string[] = [];
     let contributors: any[] = [];
+
+    const normalizeRisk = (risk: string): "Safe" | "Moderate Risk" | "High Risk" => {
+        const r = (risk || "").toUpperCase();
+        if (r.includes("HIGH")) return "High Risk";
+        if (r.includes("MODERATE") || r.includes("MEDIUM")) return "Moderate Risk";
+        return "Safe";
+    };
 
     if (mode === 'commit') {
         const d = data as AnalyseResponse;
@@ -65,7 +72,7 @@ export function ScanResultsView({
         commitDepth = d.scanned_files || 0;
         suspiciousCount = d.vulnerable_files || 0;
         score = (d.repo_risk_score || 0) * 100;
-        level = d.repo_risk || 'Safe';
+        level = normalizeRisk(d.repo_risk);
         results = (d.results || []).filter(r => r.prediction === 'VULNERABLE');
 
         if (suspiciousCount > 0) {
@@ -81,7 +88,7 @@ export function ScanResultsView({
         commitDepth = ca?.total_analyzed || 0;
         suspiciousCount = (ca?.suspicious_count || 0) + (sc?.vulnerable_files || 0);
         score = (sc?.repo_risk_score || ca?.suspicious_pct / 100 || 0) * 100;
-        level = sc?.repo_risk || (ca?.suspicious_count > 0 ? 'Moderate Risk' : 'Safe');
+        level = normalizeRisk(sc?.repo_risk || (ca?.suspicious_count > 0 ? 'Moderate Risk' : 'Safe'));
         
         results = [
             ...(ca?.results || []).filter(r => r.suspicious).map(r => ({ ...r, type: 'commit' })),
@@ -125,12 +132,18 @@ export function ScanResultsView({
             flaggedContributors: 0,
             atRiskFiles: mode === 'code' ? suspiciousCount : 0,
             totalContributors: 0
-        }
+        },
+        vulnerableFiles: (mode === 'code' || mode === 'full') ? results.filter(r => r.type === 'code' || mode === 'code').map(r => ({
+            filename: r.filename || "unknown_file",
+            riskPercentage: (r.vulnerable_probability || r.probability || 0) * 100,
+            riskLevel: (r.risk_level || 'MEDIUM').toUpperCase() as 'HIGH' | 'MEDIUM' | 'LOW',
+            language: r.language || "unknown"
+        })) : []
     };
 
     const mappedAnalysis = {
         overallRiskScore: Math.round(score),
-        riskLevel: level as "Safe" | "Moderate Risk" | "High Risk",
+        riskLevel: level,
         confidenceScore: 85,
         keyFactors: [],
         suspiciousEventsTimeline: [],
@@ -146,7 +159,7 @@ export function ScanResultsView({
                     onClick={onReset}
                     className="flex items-center gap-2 text-muted-foreground hover:text-white transition-all text-[10px] font-headline uppercase tracking-widest glass-panel px-6 py-2.5 rounded-xl border border-white/10"
                 >
-                    <ArrowLeft className="h-3 w-3" /> Back to Scan
+                    <ArrowLeft className="h-3 w-3" /> Back to Search
                 </button>
             </div>
 
@@ -159,6 +172,7 @@ export function ScanResultsView({
                     scanMode={mode}
                     rawData={mappedRawData}
                     analysis={mappedAnalysis}
+                    onReset={onReset}
                 />
             </div>
         </div>
